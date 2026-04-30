@@ -22,6 +22,10 @@ Parser -> NormalizedDocument -> Chunker -> Enricher -> Exporter
 
 Python is responsible for document parsing and chunk generation. Java services will later handle web APIs, task orchestration, authentication, persistence, and retrieval integration.
 
+## Schema
+
+The current MVP output contract is documented in [docs/chunk-schema.md](docs/chunk-schema.md).
+
 ## Quick Start
 
 Run the Markdown chunking MVP:
