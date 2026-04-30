@@ -22,6 +22,22 @@ Parser -> NormalizedDocument -> Chunker -> Enricher -> Exporter
 
 Python is responsible for document parsing and chunk generation. Java services will later handle web APIs, task orchestration, authentication, persistence, and retrieval integration.
 
+## Quick Start
+
+Run the Markdown chunking MVP:
+
+```bash
+cd python-worker
+python -m rag_chunker.cli ../samples/chunking_tool_design.md --out ../outputs/chunks.json
+```
+
+Run the test suite:
+
+```bash
+cd python-worker
+python -m unittest discover -s tests
+```
+
 ## License
 
 This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
