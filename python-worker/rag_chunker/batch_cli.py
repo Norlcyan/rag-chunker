@@ -47,8 +47,20 @@ def run_batch(input_dir: Path, output_dir: Path, stdout: TextIO) -> BatchSummary
 
     success_count = 0
     failure_count = 0
+    output_sources: dict[Path, Path] = {}
     for input_path in iter_markdown_files(input_dir):
         output_path = build_output_path(input_path, input_dir, output_dir)
+        previous_input = output_sources.get(output_path)
+        if previous_input is not None:
+            failure_count += 1
+            print(
+                f"FAIL {_display_path(input_path)}  →  Output path collision with "
+                f"{_display_path(previous_input)}: {_display_path(output_path)}",
+                file=stdout,
+            )
+            continue
+        output_sources[output_path] = input_path
+
         try:
             payload = chunk_markdown_file(input_path)
             write_json(payload, output_path)

@@ -82,6 +82,27 @@ class BatchCliTest(unittest.TestCase):
             self.assertFalse((output_dir / "samples" / "broken.json").exists())
             self.assertTrue((output_dir / "samples" / "good.json").exists())
 
+    def test_batch_cli_reports_output_path_collision_without_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            base = Path(temporary_dir)
+            input_dir = base / "samples"
+            output_dir = base / "outputs"
+            input_dir.mkdir()
+            (input_dir / "same.markdown").write_text("# Markdown\n\n## A\n正文 A\n", encoding="utf-8")
+            (input_dir / "same.md").write_text("# Md\n\n## B\n正文 B\n", encoding="utf-8")
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main([str(input_dir), "--out-dir", str(output_dir)])
+
+            output = stdout.getvalue()
+            output_path = output_dir / "samples" / "same.json"
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(exit_code, 1)
+            self.assertIn("Output path collision", output)
+            self.assertIn("成功: 1  失败: 1", output)
+            self.assertEqual(payload["doc_title"], "Markdown")
+
     def test_batch_cli_rejects_missing_input_dir(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
             missing_dir = Path(temporary_dir) / "missing"
