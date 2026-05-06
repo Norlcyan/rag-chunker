@@ -42,6 +42,38 @@ cd python-worker
 python -m rag_chunker.batch_cli ../samples --out-dir ../outputs
 ```
 
+Install the Python worker service dependencies in a virtual environment:
+
+```bash
+cd python-worker
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Install development and test dependencies:
+
+```bash
+cd python-worker
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+Run the FastAPI chunking service:
+
+```bash
+cd python-worker
+python -m rag_chunker.server --host 127.0.0.1 --port 8000
+```
+
+Chunk one Markdown file through HTTP:
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/v1/chunk \
+  -F "file=@../samples/simple_guide.md" \
+  -F "source_type=markdown"
+```
+
 Run the test suite:
 
 ```bash
