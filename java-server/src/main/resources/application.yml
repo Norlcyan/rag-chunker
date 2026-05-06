@@ -1,0 +1,10 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: rag-chunker-java-server
+
+rag-chunker:
+  python-worker:
+    base-url: http://127.0.0.1:8000
