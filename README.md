@@ -81,6 +81,14 @@ cd java-server
 mvn spring-boot:run
 ```
 
+Call the Java server chunk proxy:
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/v1/chunk \
+  -F "file=@../samples/simple_guide.md" \
+  -F "source_type=markdown"
+```
+
 Run the test suite:
 
 ```bash
