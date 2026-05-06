@@ -51,7 +51,7 @@ public class PythonChunkClient {
                     .exchange((request, response) -> {
                         String responseBody = StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8);
                         if (response.getStatusCode().is2xxSuccessful()) {
-                            chunkSchemaValidator.validateHttpSuccessResponse(responseBody);
+                            chunkSchemaValidator.validateAndParseHttpSuccessResponse(responseBody);
                         }
                         HttpHeaders headers = new HttpHeaders();
                         MediaType contentType = response.getHeaders().getContentType();

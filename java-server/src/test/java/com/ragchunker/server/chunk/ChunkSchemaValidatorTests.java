@@ -1,8 +1,10 @@
 package com.ragchunker.server.chunk;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ragchunker.server.chunk.domain.ChunkDocument;
 import org.junit.jupiter.api.Test;
 
 class ChunkSchemaValidatorTests {
@@ -11,7 +13,7 @@ class ChunkSchemaValidatorTests {
 
     @Test
     void validateAcceptsValidChunkResponse() {
-        validator.validateHttpSuccessResponse("""
+        ChunkDocument document = validator.validateAndParseHttpSuccessResponse("""
                 {
                   "status": "ok",
                   "doc_id": "demo",
@@ -39,11 +41,19 @@ class ChunkSchemaValidatorTests {
                   ]
                 }
                 """);
+
+        assertThat(document.docId()).isEqualTo("demo");
+        assertThat(document.docTitle()).isEqualTo("Demo");
+        assertThat(document.sourceType()).isEqualTo("markdown");
+        assertThat(document.chunks()).hasSize(2);
+        assertThat(document.chunks().get(0).sectionTitle()).isEqualTo("__preamble__");
+        assertThat(document.chunks().get(1).sectionPath()).containsExactly("Demo", "Overview", "Details");
+        assertThat(document.chunks().get(1).retrievalText()).isEqualTo("Demo > Overview > Details\n\nBody");
     }
 
     @Test
     void validateRejectsInvalidChunkIdSequence() {
-        assertThatThrownBy(() -> validator.validateHttpSuccessResponse("""
+        assertThatThrownBy(() -> validator.validateAndParseHttpSuccessResponse("""
                 {
                   "status": "ok",
                   "doc_id": "demo",
@@ -68,7 +78,7 @@ class ChunkSchemaValidatorTests {
 
     @Test
     void validateRejectsInvalidRetrievalText() {
-        assertThatThrownBy(() -> validator.validateHttpSuccessResponse("""
+        assertThatThrownBy(() -> validator.validateAndParseHttpSuccessResponse("""
                 {
                   "status": "ok",
                   "doc_id": "demo",
@@ -93,7 +103,7 @@ class ChunkSchemaValidatorTests {
 
     @Test
     void validateRejectsInvalidPreamblePath() {
-        assertThatThrownBy(() -> validator.validateHttpSuccessResponse("""
+        assertThatThrownBy(() -> validator.validateAndParseHttpSuccessResponse("""
                 {
                   "status": "ok",
                   "doc_id": "demo",
