@@ -79,6 +79,38 @@ Rules:
 - Empty or whitespace-only preamble content is skipped.
 - Java validation should not compare `level = 0` chunks against heading hierarchy rules.
 
+## HTTP API Response
+
+`POST /v1/chunk` wraps the pure Chunk JSON payload for HTTP transport.
+
+Successful response:
+
+```json
+{
+  "status": "ok",
+  "doc_id": "simple_guide",
+  "doc_title": "快速使用指南",
+  "source_type": "markdown",
+  "chunks": []
+}
+```
+
+Error response:
+
+```json
+{
+  "status": "error",
+  "error": "Unsupported source_type: pdf"
+}
+```
+
+Rules:
+
+- The Python pipeline and exporter still produce pure Chunk JSON without `status` or `error`.
+- The HTTP response adds `status = "ok"` at the top level and keeps the Chunk JSON fields unchanged.
+- Error responses use `status = "error"` and a human-readable `error` message.
+- The current MVP only accepts `source_type = "markdown"`.
+
 ## MVP Limitations
 
 The current MVP does not include these fields:

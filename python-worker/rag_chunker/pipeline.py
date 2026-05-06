@@ -17,3 +17,10 @@ def chunk_markdown_file(input_path: str | Path) -> dict[str, object]:
     document = MarkdownParser().parse(input_path)
     chunks = StructureChunker().chunk(document)
     return build_output(document, chunks)
+
+
+def chunk_markdown_text(text: str, doc_id: str) -> dict[str, object]:
+    """Parse Markdown text and return the standardized Chunk JSON payload."""
+    document = MarkdownParser().parse_text(text, doc_id=doc_id)
+    chunks = StructureChunker().chunk(document)
+    return build_output(document, chunks)
