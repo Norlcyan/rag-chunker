@@ -35,6 +35,13 @@ cd python-worker
 python -m rag_chunker.cli ../samples/chunking_tool_design.md --out ../outputs/chunks.json
 ```
 
+Run all sample Markdown documents:
+
+```bash
+cd python-worker
+python -m rag_chunker.batch_cli ../samples --out-dir ../outputs
+```
+
 Run the test suite:
 
 ```bash
