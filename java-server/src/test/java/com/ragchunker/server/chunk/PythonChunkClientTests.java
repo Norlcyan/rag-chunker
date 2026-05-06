@@ -21,10 +21,12 @@ import org.springframework.web.client.RestClient;
 class PythonChunkClientTests {
 
     @Test
-    void chunkReturnsSuccessfulPythonWorkerResponse() {
+    void chunkReturnsSuccessfulPythonWorkerResponse() throws Exception {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://127.0.0.1:8000");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        PythonChunkClient client = new PythonChunkClient(builder.build(), new ObjectMapper());
+        ObjectMapper objectMapper = new ObjectMapper();
+        PythonChunkClient client = new PythonChunkClient(
+                builder.build(), objectMapper, new ChunkSchemaValidator(objectMapper));
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 "demo.md",
@@ -34,13 +36,31 @@ class PythonChunkClientTests {
         server.expect(once(), requestTo("http://127.0.0.1:8000/v1/chunk"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(HttpHeaders.CONTENT_TYPE, org.hamcrest.Matchers.startsWith("multipart/form-data")))
-                .andRespond(withSuccess("{\"status\":\"ok\",\"doc_id\":\"demo\",\"chunks\":[]}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("""
+                        {
+                          "status": "ok",
+                          "doc_id": "demo",
+                          "doc_title": "Demo",
+                          "source_type": "markdown",
+                          "chunks": [
+                            {
+                              "chunk_id": "demo_chunk_0001",
+                              "doc_id": "demo",
+                              "section_title": "Intro",
+                              "section_path": ["Demo", "Intro"],
+                              "level": 2,
+                              "text": "Hello",
+                              "retrieval_text": "Demo > Intro\\n\\nHello"
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
 
         ResponseEntity<String> response = client.chunk(file, "markdown");
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_JSON);
-        assertThat(response.getBody()).contains("\"status\":\"ok\"");
+        assertThat(objectMapper.readTree(response.getBody()).get("status").asText()).isEqualTo("ok");
         server.verify();
     }
 
@@ -48,7 +68,9 @@ class PythonChunkClientTests {
     void chunkForwardsPythonWorkerErrorResponse() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://127.0.0.1:8000");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        PythonChunkClient client = new PythonChunkClient(builder.build(), new ObjectMapper());
+        ObjectMapper objectMapper = new ObjectMapper();
+        PythonChunkClient client = new PythonChunkClient(
+                builder.build(), objectMapper, new ChunkSchemaValidator(objectMapper));
         MockMultipartFile file = new MockMultipartFile("file", "demo.txt", "text/plain", "text".getBytes());
 
         server.expect(once(), requestTo("http://127.0.0.1:8000/v1/chunk"))
@@ -60,6 +82,26 @@ class PythonChunkClientTests {
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody()).contains("Unsupported input type");
+        server.verify();
+    }
+
+    @Test
+    void chunkReturnsBadGatewayWhenSuccessfulPythonResponseViolatesSchema() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://127.0.0.1:8000");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        ObjectMapper objectMapper = new ObjectMapper();
+        PythonChunkClient client = new PythonChunkClient(
+                builder.build(), objectMapper, new ChunkSchemaValidator(objectMapper));
+        MockMultipartFile file = new MockMultipartFile("file", "demo.md", "text/markdown", "# Demo\n".getBytes());
+
+        server.expect(once(), requestTo("http://127.0.0.1:8000/v1/chunk"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess("{\"status\":\"ok\",\"doc_id\":\"demo\",\"chunks\":[]}", MediaType.APPLICATION_JSON));
+
+        ResponseEntity<String> response = client.chunk(file, "markdown");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(502);
+        assertThat(response.getBody()).contains("status", "error", "doc_title must be a string");
         server.verify();
     }
 }

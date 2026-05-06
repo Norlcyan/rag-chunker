@@ -27,10 +27,15 @@ public class PythonChunkClient {
 
     private final RestClient pythonWorkerRestClient;
     private final ObjectMapper objectMapper;
+    private final ChunkSchemaValidator chunkSchemaValidator;
 
-    public PythonChunkClient(RestClient pythonWorkerRestClient, ObjectMapper objectMapper) {
+    public PythonChunkClient(
+            RestClient pythonWorkerRestClient,
+            ObjectMapper objectMapper,
+            ChunkSchemaValidator chunkSchemaValidator) {
         this.pythonWorkerRestClient = pythonWorkerRestClient;
         this.objectMapper = objectMapper;
+        this.chunkSchemaValidator = chunkSchemaValidator;
     }
 
     public ResponseEntity<String> chunk(MultipartFile file, String sourceType) {
@@ -45,12 +50,15 @@ public class PythonChunkClient {
                     .body(body)
                     .exchange((request, response) -> {
                         String responseBody = StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8);
+                        if (response.getStatusCode().is2xxSuccessful()) {
+                            chunkSchemaValidator.validateHttpSuccessResponse(responseBody);
+                        }
                         HttpHeaders headers = new HttpHeaders();
                         MediaType contentType = response.getHeaders().getContentType();
                         headers.setContentType(contentType == null ? MediaType.APPLICATION_JSON : contentType);
                         return ResponseEntity.status(response.getStatusCode()).headers(headers).body(responseBody);
                     });
-        } catch (RestClientException | UncheckedIOException ex) {
+        } catch (RestClientException | UncheckedIOException | ChunkSchemaValidationException ex) {
             return errorResponse("Python worker request failed: " + ex.getMessage());
         }
     }
