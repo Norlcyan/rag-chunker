@@ -8,12 +8,8 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from rag_chunker.chunker import StructureChunker
-from rag_chunker.exporter import build_output, write_json
-from rag_chunker.markdown_parser import MarkdownParser
-
-
-MARKDOWN_SUFFIXES = {".md", ".markdown"}
+from rag_chunker.exporter import write_json
+from rag_chunker.pipeline import MARKDOWN_SUFFIXES, chunk_markdown_file
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -34,9 +30,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     try:
-        document = MarkdownParser().parse(input_path)
-        chunks = StructureChunker().chunk(document)
-        output = build_output(document, chunks)
+        output = chunk_markdown_file(input_path)
         if args.out:
             write_json(output, args.out)
         else:
