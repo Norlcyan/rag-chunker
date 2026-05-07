@@ -28,138 +28,213 @@ public class ChunkSchemaValidator {
     /**
      * Validate and parse the HTTP-wrapped successful response from Python /v1/chunk.
      */
-    public ChunkDocument validateAndParseHttpSuccessResponse(String responseBody) {
-        JsonNode root = parseObject(responseBody);
-        requireText(root, "status", true);
-        if (!OK_STATUS.equals(root.get("status").asText())) {
-            throw new ChunkSchemaValidationException("status must be ok for successful Python responses.");
+    public ChunkValidationResult validateAndParseHttpSuccessResponse(String responseBody) {
+        List<ChunkValidationError> errors = new ArrayList<>();
+        JsonNode root = parseObject(responseBody, errors);
+        if (root == null) {
+            return ChunkValidationResult.invalid(errors);
         }
 
-        String docId = requireText(root, "doc_id", true);
-        String docTitle = requireText(root, "doc_title", true);
-        String sourceType = requireText(root, "source_type", true);
-        if (!MARKDOWN_SOURCE_TYPE.equals(sourceType)) {
-            throw new ChunkSchemaValidationException("source_type must be markdown.");
+        String status = readText(root, "status", "status", true, errors);
+        if (status != null && !OK_STATUS.equals(status)) {
+            errors.add(new ChunkValidationError("status", "must be ok for successful Python responses."));
         }
 
-        JsonNode chunks = requireArray(root, "chunks");
+        String docId = readText(root, "doc_id", "doc_id", true, errors);
+        String docTitle = readText(root, "doc_title", "doc_title", true, errors);
+        String sourceType = readText(root, "source_type", "source_type", true, errors);
+        if (sourceType != null && !MARKDOWN_SOURCE_TYPE.equals(sourceType)) {
+            errors.add(new ChunkValidationError("source_type", "must be markdown."));
+        }
+
+        JsonNode chunks = readArray(root, "chunks", "chunks", errors);
         List<ChunkItem> chunkItems = new ArrayList<>();
-        for (int index = 0; index < chunks.size(); index++) {
-            chunkItems.add(validateChunk(chunks.get(index), index + 1, docId, docTitle));
+        if (chunks != null) {
+            for (int index = 0; index < chunks.size(); index++) {
+                ChunkItem chunk = validateChunk(chunks.get(index), index + 1, docId, docTitle, errors);
+                if (chunk != null) {
+                    chunkItems.add(chunk);
+                }
+            }
         }
-        return new ChunkDocument(docId, docTitle, sourceType, chunkItems);
+
+        if (!errors.isEmpty()) {
+            return ChunkValidationResult.invalid(errors);
+        }
+        return ChunkValidationResult.valid(new ChunkDocument(docId, docTitle, sourceType, chunkItems));
     }
 
-    private JsonNode parseObject(String responseBody) {
+    private JsonNode parseObject(String responseBody, List<ChunkValidationError> errors) {
         try {
             JsonNode root = objectMapper.readTree(responseBody);
             if (root == null || !root.isObject()) {
-                throw new ChunkSchemaValidationException("response body must be a JSON object.");
+                errors.add(new ChunkValidationError("response_body", "must be a JSON object."));
+                return null;
             }
             return root;
         } catch (JsonProcessingException ex) {
-            throw new ChunkSchemaValidationException("response body must be valid JSON.", ex);
+            errors.add(new ChunkValidationError("response_body", "must be valid JSON."));
+            return null;
         }
     }
 
-    private ChunkItem validateChunk(JsonNode chunk, int sequence, String docId, String docTitle) {
+    private ChunkItem validateChunk(
+            JsonNode chunk,
+            int sequence,
+            String docId,
+            String docTitle,
+            List<ChunkValidationError> errors) {
+        String chunkPath = "chunks[" + (sequence - 1) + "]";
         if (chunk == null || !chunk.isObject()) {
-            throw new ChunkSchemaValidationException("chunks[" + (sequence - 1) + "] must be a JSON object.");
+            errors.add(new ChunkValidationError(chunkPath, "must be a JSON object."));
+            return null;
         }
 
-        String expectedChunkId = "%s_chunk_%04d".formatted(docId, sequence);
-        String chunkId = requireText(chunk, "chunk_id", true);
-        if (!expectedChunkId.equals(chunkId)) {
-            throw new ChunkSchemaValidationException("chunk_id must be " + expectedChunkId + ".");
+        String chunkId = readText(chunk, "chunk_id", chunkPath + ".chunk_id", true, errors);
+        if (chunkId != null && docId != null) {
+            String expectedChunkId = "%s_chunk_%04d".formatted(docId, sequence);
+            if (!expectedChunkId.equals(chunkId)) {
+                errors.add(new ChunkValidationError(chunkPath + ".chunk_id", "must be " + expectedChunkId + "."));
+            }
         }
 
-        String chunkDocId = requireText(chunk, "doc_id", true);
-        if (!docId.equals(chunkDocId)) {
-            throw new ChunkSchemaValidationException("chunk doc_id must match top-level doc_id.");
+        String chunkDocId = readText(chunk, "doc_id", chunkPath + ".doc_id", true, errors);
+        if (chunkDocId != null && docId != null && !docId.equals(chunkDocId)) {
+            errors.add(new ChunkValidationError(chunkPath + ".doc_id", "must match top-level doc_id."));
         }
 
-        String sectionTitle = requireText(chunk, "section_title", true);
-        List<String> sectionPath = requireStringArray(chunk, "section_path");
-        int level = requireInt(chunk, "level");
-        String text = requireText(chunk, "text", false);
-        String retrievalText = requireText(chunk, "retrieval_text", false);
+        String sectionTitle = readText(chunk, "section_title", chunkPath + ".section_title", true, errors);
+        List<String> sectionPath = readStringArray(chunk, "section_path", chunkPath + ".section_path", errors);
+        Integer level = readInt(chunk, "level", chunkPath + ".level", errors);
+        String text = readText(chunk, "text", chunkPath + ".text", false, errors);
+        String retrievalText = readText(chunk, "retrieval_text", chunkPath + ".retrieval_text", false, errors);
 
-        validateSectionPath(sectionTitle, sectionPath, level, docTitle);
+        validateSectionPath(sectionTitle, sectionPath, level, docTitle, chunkPath, errors);
 
-        String expectedRetrievalText = String.join(" > ", sectionPath) + "\n\n" + text;
-        if (!expectedRetrievalText.equals(retrievalText)) {
-            throw new ChunkSchemaValidationException("retrieval_text must equal joined section_path plus text.");
+        if (sectionPath != null && text != null && retrievalText != null) {
+            String expectedRetrievalText = String.join(" > ", sectionPath) + "\n\n" + text;
+            if (!expectedRetrievalText.equals(retrievalText)) {
+                errors.add(new ChunkValidationError(
+                        chunkPath + ".retrieval_text",
+                        "must equal joined section_path plus text."));
+            }
+        }
+        if (chunkId == null || chunkDocId == null || sectionTitle == null
+                || sectionPath == null || level == null || text == null || retrievalText == null) {
+            return null;
         }
         return new ChunkItem(chunkId, chunkDocId, sectionTitle, sectionPath, level, text, retrievalText);
     }
 
-    private void validateSectionPath(String sectionTitle, List<String> sectionPath, int level, String docTitle) {
-        if (sectionPath.isEmpty()) {
-            throw new ChunkSchemaValidationException("section_path must not be empty.");
+    private void validateSectionPath(
+            String sectionTitle,
+            List<String> sectionPath,
+            Integer level,
+            String docTitle,
+            String chunkPath,
+            List<ChunkValidationError> errors) {
+        if (sectionPath == null || level == null) {
+            return;
         }
-        if (!docTitle.equals(sectionPath.get(0))) {
-            throw new ChunkSchemaValidationException("section_path must start with doc_title.");
+        if (sectionPath.isEmpty()) {
+            errors.add(new ChunkValidationError(chunkPath + ".section_path", "must not be empty."));
+            return;
+        }
+        if (docTitle != null && !docTitle.equals(sectionPath.get(0))) {
+            errors.add(new ChunkValidationError(chunkPath + ".section_path", "must start with doc_title."));
         }
 
         if (level == 0) {
-            if (!PREAMBLE_SECTION_TITLE.equals(sectionTitle)) {
-                throw new ChunkSchemaValidationException("level 0 chunk section_title must be __preamble__.");
+            if (sectionTitle != null && !PREAMBLE_SECTION_TITLE.equals(sectionTitle)) {
+                errors.add(new ChunkValidationError(
+                        chunkPath + ".section_title",
+                        "must be __preamble__ for level 0 chunks."));
             }
             if (sectionPath.size() != 2
-                    || !docTitle.equals(sectionPath.get(0))
+                    || (docTitle != null && !docTitle.equals(sectionPath.get(0)))
                     || !PREAMBLE_SECTION_TITLE.equals(sectionPath.get(1))) {
-                throw new ChunkSchemaValidationException("level 0 chunk section_path must be [doc_title, __preamble__].");
+                errors.add(new ChunkValidationError(
+                        chunkPath + ".section_path",
+                        "must be [doc_title, __preamble__] for level 0 chunks."));
             }
             return;
         }
 
         if (level != 2 && level != 3) {
-            throw new ChunkSchemaValidationException("current MVP only accepts chunk level 0, 2, or 3.");
+            errors.add(new ChunkValidationError(chunkPath + ".level", "must be 0, 2, or 3 in the current MVP."));
         }
         if (sectionPath.size() != level) {
-            throw new ChunkSchemaValidationException("section_path size must match heading level.");
+            errors.add(new ChunkValidationError(chunkPath + ".section_path", "size must match heading level."));
         }
-        if (!sectionTitle.equals(sectionPath.get(sectionPath.size() - 1))) {
-            throw new ChunkSchemaValidationException("section_path must end with section_title.");
+        if (sectionTitle != null && !sectionTitle.equals(sectionPath.get(sectionPath.size() - 1))) {
+            errors.add(new ChunkValidationError(chunkPath + ".section_path", "must end with section_title."));
         }
     }
 
-    private String requireText(JsonNode node, String fieldName, boolean nonBlank) {
+    private String readText(
+            JsonNode node,
+            String fieldName,
+            String fieldPath,
+            boolean nonBlank,
+            List<ChunkValidationError> errors) {
         JsonNode value = node.get(fieldName);
         if (value == null || !value.isTextual()) {
-            throw new ChunkSchemaValidationException(fieldName + " must be a string.");
+            errors.add(new ChunkValidationError(fieldPath, "must be a string."));
+            return null;
         }
         String text = value.asText();
         if (nonBlank && text.isBlank()) {
-            throw new ChunkSchemaValidationException(fieldName + " must not be blank.");
+            errors.add(new ChunkValidationError(fieldPath, "must not be blank."));
+            return null;
         }
         return text;
     }
 
-    private JsonNode requireArray(JsonNode node, String fieldName) {
+    private JsonNode readArray(
+            JsonNode node,
+            String fieldName,
+            String fieldPath,
+            List<ChunkValidationError> errors) {
         JsonNode value = node.get(fieldName);
         if (value == null || !value.isArray()) {
-            throw new ChunkSchemaValidationException(fieldName + " must be an array.");
+            errors.add(new ChunkValidationError(fieldPath, "must be an array."));
+            return null;
         }
         return value;
     }
 
-    private List<String> requireStringArray(JsonNode node, String fieldName) {
-        JsonNode array = requireArray(node, fieldName);
+    private List<String> readStringArray(
+            JsonNode node,
+            String fieldName,
+            String fieldPath,
+            List<ChunkValidationError> errors) {
+        JsonNode array = readArray(node, fieldName, fieldPath, errors);
+        if (array == null) {
+            return null;
+        }
         List<String> values = new ArrayList<>();
-        for (JsonNode item : array) {
+        boolean valid = true;
+        for (int index = 0; index < array.size(); index++) {
+            JsonNode item = array.get(index);
             if (!item.isTextual() || item.asText().isBlank()) {
-                throw new ChunkSchemaValidationException(fieldName + " must contain non-blank strings.");
+                errors.add(new ChunkValidationError(fieldPath + "[" + index + "]", "must be a non-blank string."));
+                valid = false;
+                continue;
             }
             values.add(item.asText());
         }
-        return values;
+        return valid ? values : null;
     }
 
-    private int requireInt(JsonNode node, String fieldName) {
+    private Integer readInt(
+            JsonNode node,
+            String fieldName,
+            String fieldPath,
+            List<ChunkValidationError> errors) {
         JsonNode value = node.get(fieldName);
         if (value == null || !value.isIntegralNumber() || !value.canConvertToInt()) {
-            throw new ChunkSchemaValidationException(fieldName + " must be an integer.");
+            errors.add(new ChunkValidationError(fieldPath, "must be an integer."));
+            return null;
         }
         return value.asInt();
     }

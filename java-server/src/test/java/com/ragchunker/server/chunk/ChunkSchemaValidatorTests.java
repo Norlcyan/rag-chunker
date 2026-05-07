@@ -1,7 +1,6 @@
 package com.ragchunker.server.chunk;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ragchunker.server.chunk.domain.ChunkDocument;
@@ -14,7 +13,7 @@ class ChunkSchemaValidatorTests {
 
     @Test
     void validateAcceptsValidChunkResponse() throws Exception {
-        ChunkDocument document = validator.validateAndParseHttpSuccessResponse("""
+        ChunkValidationResult result = validator.validateAndParseHttpSuccessResponse("""
                 {
                   "status": "ok",
                   "doc_id": "demo",
@@ -43,6 +42,9 @@ class ChunkSchemaValidatorTests {
                 }
                 """);
 
+        assertThat(result.valid()).isTrue();
+        assertThat(result.errors()).isEmpty();
+        ChunkDocument document = result.document();
         assertThat(document.docId()).isEqualTo("demo");
         assertThat(document.docTitle()).isEqualTo("Demo");
         assertThat(document.sourceType()).isEqualTo("markdown");
@@ -60,8 +62,8 @@ class ChunkSchemaValidatorTests {
     }
 
     @Test
-    void validateRejectsInvalidChunkIdSequence() {
-        assertThatThrownBy(() -> validator.validateAndParseHttpSuccessResponse("""
+    void validateReturnsSingleErrorForInvalidChunkIdSequence() {
+        ChunkValidationResult result = validator.validateAndParseHttpSuccessResponse("""
                 {
                   "status": "ok",
                   "doc_id": "demo",
@@ -79,14 +81,19 @@ class ChunkSchemaValidatorTests {
                     }
                   ]
                 }
-                """))
-                .isInstanceOf(ChunkSchemaValidationException.class)
-                .hasMessageContaining("chunk_id must be demo_chunk_0001");
+                """);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.document()).isNull();
+        assertThat(result.errors())
+                .extracting(ChunkValidationError::field)
+                .containsExactly("chunks[0].chunk_id");
+        assertThat(result.errorMessage()).contains("chunks[0].chunk_id must be demo_chunk_0001.");
     }
 
     @Test
-    void validateRejectsInvalidRetrievalText() {
-        assertThatThrownBy(() -> validator.validateAndParseHttpSuccessResponse("""
+    void validateReturnsSingleErrorForInvalidRetrievalText() {
+        ChunkValidationResult result = validator.validateAndParseHttpSuccessResponse("""
                 {
                   "status": "ok",
                   "doc_id": "demo",
@@ -104,14 +111,17 @@ class ChunkSchemaValidatorTests {
                     }
                   ]
                 }
-                """))
-                .isInstanceOf(ChunkSchemaValidationException.class)
-                .hasMessageContaining("retrieval_text");
+                """);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.errors())
+                .extracting(ChunkValidationError::field)
+                .containsExactly("chunks[0].retrieval_text");
     }
 
     @Test
-    void validateRejectsInvalidPreamblePath() {
-        assertThatThrownBy(() -> validator.validateAndParseHttpSuccessResponse("""
+    void validateReturnsSingleErrorForInvalidPreamblePath() {
+        ChunkValidationResult result = validator.validateAndParseHttpSuccessResponse("""
                 {
                   "status": "ok",
                   "doc_id": "demo",
@@ -129,8 +139,46 @@ class ChunkSchemaValidatorTests {
                     }
                   ]
                 }
-                """))
-                .isInstanceOf(ChunkSchemaValidationException.class)
-                .hasMessageContaining("level 0 chunk section_path");
+                """);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.errors())
+                .extracting(ChunkValidationError::field)
+                .containsExactly("chunks[0].section_path");
+    }
+
+    @Test
+    void validateCollectsMultipleErrors() {
+        ChunkValidationResult result = validator.validateAndParseHttpSuccessResponse("""
+                {
+                  "status": "ok",
+                  "doc_id": "demo",
+                  "doc_title": "Demo",
+                  "source_type": "markdown",
+                  "chunks": [
+                    {
+                      "chunk_id": "wrong",
+                      "doc_id": "other",
+                      "section_title": "Intro",
+                      "section_path": ["Wrong", "Intro"],
+                      "level": 4,
+                      "text": "Hello",
+                      "retrieval_text": "wrong"
+                    }
+                  ]
+                }
+                """);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.document()).isNull();
+        assertThat(result.errors())
+                .extracting(ChunkValidationError::field)
+                .containsExactly(
+                        "chunks[0].chunk_id",
+                        "chunks[0].doc_id",
+                        "chunks[0].section_path",
+                        "chunks[0].level",
+                        "chunks[0].section_path",
+                        "chunks[0].retrieval_text");
     }
 }
