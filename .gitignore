@@ -1,4 +1,9 @@
+# AI collaboration docs
 AGENTS.md
+CLAUDE*.md
+HANDOFF.md
+TASK.md
+
 __pycache__/
 *.py[cod]
 .coverage
