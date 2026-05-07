@@ -3,6 +3,8 @@ package com.ragchunker.server.chunk;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ragchunker.server.chunk.domain.ChunkDocument;
+import com.ragchunker.server.chunk.domain.ChunkItem;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -24,9 +26,9 @@ public class ChunkSchemaValidator {
     }
 
     /**
-     * Validate the HTTP-wrapped successful response from Python /v1/chunk.
+     * Validate and parse the HTTP-wrapped successful response from Python /v1/chunk.
      */
-    public void validateHttpSuccessResponse(String responseBody) {
+    public ChunkDocument validateAndParseHttpSuccessResponse(String responseBody) {
         JsonNode root = parseObject(responseBody);
         requireText(root, "status", true);
         if (!OK_STATUS.equals(root.get("status").asText())) {
@@ -41,9 +43,11 @@ public class ChunkSchemaValidator {
         }
 
         JsonNode chunks = requireArray(root, "chunks");
+        List<ChunkItem> chunkItems = new ArrayList<>();
         for (int index = 0; index < chunks.size(); index++) {
-            validateChunk(chunks.get(index), index + 1, docId, docTitle);
+            chunkItems.add(validateChunk(chunks.get(index), index + 1, docId, docTitle));
         }
+        return new ChunkDocument(docId, docTitle, sourceType, chunkItems);
     }
 
     private JsonNode parseObject(String responseBody) {
@@ -58,7 +62,7 @@ public class ChunkSchemaValidator {
         }
     }
 
-    private void validateChunk(JsonNode chunk, int sequence, String docId, String docTitle) {
+    private ChunkItem validateChunk(JsonNode chunk, int sequence, String docId, String docTitle) {
         if (chunk == null || !chunk.isObject()) {
             throw new ChunkSchemaValidationException("chunks[" + (sequence - 1) + "] must be a JSON object.");
         }
@@ -86,6 +90,7 @@ public class ChunkSchemaValidator {
         if (!expectedRetrievalText.equals(retrievalText)) {
             throw new ChunkSchemaValidationException("retrieval_text must equal joined section_path plus text.");
         }
+        return new ChunkItem(chunkId, chunkDocId, sectionTitle, sectionPath, level, text, retrievalText);
     }
 
     private void validateSectionPath(String sectionTitle, List<String> sectionPath, int level, String docTitle) {

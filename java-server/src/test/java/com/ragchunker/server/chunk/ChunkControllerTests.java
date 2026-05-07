@@ -9,8 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -29,13 +30,21 @@ class ChunkControllerTests {
                 "# Demo\n\n## Intro\nHello\n".getBytes());
 
         when(pythonChunkClient.chunk(any(MultipartFile.class), eq("markdown")))
-                .thenReturn(ResponseEntity.ok()
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body("{\"status\":\"ok\",\"doc_id\":\"demo\",\"chunks\":[]}"));
+                .thenReturn(new PythonChunkResponse(
+                        HttpStatus.OK,
+                        jsonHeaders(),
+                        "{\"status\":\"ok\",\"doc_id\":\"demo\",\"chunks\":[]}",
+                        null));
 
         mockMvc.perform(multipart("/v1/chunk").file(file).param("source_type", "markdown"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(content().json("{\"status\":\"ok\",\"doc_id\":\"demo\",\"chunks\":[]}"));
+    }
+
+    private HttpHeaders jsonHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
     }
 }

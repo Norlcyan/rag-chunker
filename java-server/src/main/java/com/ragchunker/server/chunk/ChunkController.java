@@ -24,6 +24,6 @@ public class ChunkController {
     public ResponseEntity<String> chunk(
             @RequestPart("file") MultipartFile file,
             @RequestParam(name = "source_type", defaultValue = "markdown") String sourceType) {
-        return pythonChunkClient.chunk(file, sourceType);
+        return pythonChunkClient.chunk(file, sourceType).toResponseEntity();
     }
 }

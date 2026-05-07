@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -56,11 +55,14 @@ class PythonChunkClientTests {
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        ResponseEntity<String> response = client.chunk(file, "markdown");
+        PythonChunkResponse response = client.chunk(file, "markdown");
 
-        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
-        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_JSON);
-        assertThat(objectMapper.readTree(response.getBody()).get("status").asText()).isEqualTo("ok");
+        assertThat(response.statusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.headers().getContentType()).isEqualTo(MediaType.APPLICATION_JSON);
+        assertThat(objectMapper.readTree(response.body()).get("status").asText()).isEqualTo("ok");
+        assertThat(response.validatedDocument()).isNotNull();
+        assertThat(response.validatedDocument().docId()).isEqualTo("demo");
+        assertThat(response.validatedDocument().chunks()).hasSize(1);
         server.verify();
     }
 
@@ -78,10 +80,11 @@ class PythonChunkClientTests {
                 .andRespond(withBadRequest().body("{\"status\":\"error\",\"error\":\"Unsupported input type: .txt\"}")
                         .contentType(MediaType.APPLICATION_JSON));
 
-        ResponseEntity<String> response = client.chunk(file, "markdown");
+        PythonChunkResponse response = client.chunk(file, "markdown");
 
-        assertThat(response.getStatusCode().value()).isEqualTo(400);
-        assertThat(response.getBody()).contains("Unsupported input type");
+        assertThat(response.statusCode().value()).isEqualTo(400);
+        assertThat(response.body()).contains("Unsupported input type");
+        assertThat(response.validatedDocument()).isNull();
         server.verify();
     }
 
@@ -98,10 +101,11 @@ class PythonChunkClientTests {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess("{\"status\":\"ok\",\"doc_id\":\"demo\",\"chunks\":[]}", MediaType.APPLICATION_JSON));
 
-        ResponseEntity<String> response = client.chunk(file, "markdown");
+        PythonChunkResponse response = client.chunk(file, "markdown");
 
-        assertThat(response.getStatusCode().value()).isEqualTo(502);
-        assertThat(response.getBody()).contains("status", "error", "doc_title must be a string");
+        assertThat(response.statusCode().value()).isEqualTo(502);
+        assertThat(response.body()).contains("status", "error", "doc_title must be a string");
+        assertThat(response.validatedDocument()).isNull();
         server.verify();
     }
 }
