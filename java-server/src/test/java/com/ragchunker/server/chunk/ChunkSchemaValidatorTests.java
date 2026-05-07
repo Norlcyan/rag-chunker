@@ -9,10 +9,11 @@ import org.junit.jupiter.api.Test;
 
 class ChunkSchemaValidatorTests {
 
-    private final ChunkSchemaValidator validator = new ChunkSchemaValidator(new ObjectMapper());
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ChunkSchemaValidator validator = new ChunkSchemaValidator(objectMapper);
 
     @Test
-    void validateAcceptsValidChunkResponse() {
+    void validateAcceptsValidChunkResponse() throws Exception {
         ChunkDocument document = validator.validateAndParseHttpSuccessResponse("""
                 {
                   "status": "ok",
@@ -49,6 +50,13 @@ class ChunkSchemaValidatorTests {
         assertThat(document.chunks().get(0).sectionTitle()).isEqualTo("__preamble__");
         assertThat(document.chunks().get(1).sectionPath()).containsExactly("Demo", "Overview", "Details");
         assertThat(document.chunks().get(1).retrievalText()).isEqualTo("Demo > Overview > Details\n\nBody");
+
+        String serialized = objectMapper.writeValueAsString(document);
+        assertThat(serialized)
+                .contains("\"doc_id\"", "\"doc_title\"", "\"source_type\"")
+                .contains("\"chunk_id\"", "\"section_title\"", "\"section_path\"", "\"retrieval_text\"")
+                .doesNotContain("\"docId\"", "\"docTitle\"", "\"sourceType\"")
+                .doesNotContain("\"chunkId\"", "\"sectionTitle\"", "\"sectionPath\"", "\"retrievalText\"");
     }
 
     @Test
