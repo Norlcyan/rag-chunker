@@ -52,7 +52,12 @@ public class PythonChunkClient {
                         String responseBody = StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8);
                         ChunkDocument validatedDocument = null;
                         if (response.getStatusCode().is2xxSuccessful()) {
-                            validatedDocument = chunkSchemaValidator.validateAndParseHttpSuccessResponse(responseBody);
+                            ChunkValidationResult validationResult =
+                                    chunkSchemaValidator.validateAndParseHttpSuccessResponse(responseBody);
+                            if (!validationResult.valid()) {
+                                throw new ChunkSchemaValidationException(validationResult.errorMessage());
+                            }
+                            validatedDocument = validationResult.document();
                         }
                         HttpHeaders headers = new HttpHeaders();
                         MediaType contentType = response.getHeaders().getContentType();
