@@ -14,16 +14,19 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 public class ChunkController {
 
-    private final PythonChunkClient pythonChunkClient;
+    private final ChunkService chunkService;
 
-    public ChunkController(PythonChunkClient pythonChunkClient) {
-        this.pythonChunkClient = pythonChunkClient;
+    public ChunkController(ChunkService chunkService) {
+        this.chunkService = chunkService;
     }
 
+    /**
+     * Handle one document upload and keep the public HTTP contract unchanged.
+     */
     @PostMapping(value = "/v1/chunk", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> chunk(
             @RequestPart("file") MultipartFile file,
             @RequestParam(name = "source_type", defaultValue = "markdown") String sourceType) {
-        return pythonChunkClient.chunk(file, sourceType).toResponseEntity();
+        return chunkService.chunk(file, sourceType);
     }
 }
