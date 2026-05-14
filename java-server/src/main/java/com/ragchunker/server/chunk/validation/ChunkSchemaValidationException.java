@@ -1,4 +1,4 @@
-package com.ragchunker.server.chunk;
+package com.ragchunker.server.chunk.validation;
 
 public class ChunkSchemaValidationException extends RuntimeException {
 

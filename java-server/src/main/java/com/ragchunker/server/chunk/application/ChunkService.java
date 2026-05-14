@@ -1,7 +1,9 @@
-package com.ragchunker.server.chunk;
+package com.ragchunker.server.chunk.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ragchunker.server.chunk.client.PythonChunkClient;
+import com.ragchunker.server.chunk.client.PythonChunkResponse;
 import com.ragchunker.server.chunk.domain.ChunkDocument;
 import com.ragchunker.server.chunk.storage.ChunkStorageException;
 import com.ragchunker.server.chunk.storage.ChunkStorageService;

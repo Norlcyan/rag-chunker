@@ -1,4 +1,4 @@
-package com.ragchunker.server.chunk;
+package com.ragchunker.server.chunk.validation;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;

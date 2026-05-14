@@ -1,4 +1,4 @@
-package com.ragchunker.server.chunk;
+package com.ragchunker.server.chunk.validation;
 
 import com.ragchunker.server.chunk.domain.ChunkDocument;
 import java.util.List;
