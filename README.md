@@ -1,5 +1,7 @@
 # rag-chunker
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 A Java + Python toolkit for building reliable RAG document chunking pipelines, starting with Markdown structure-aware parsing and standardized Chunk JSON export.
 
 ## Project Status
