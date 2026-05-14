@@ -1,4 +1,4 @@
-package com.ragchunker.server.chunk;
+package com.ragchunker.server.chunk.client;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

@@ -1,8 +1,11 @@
-package com.ragchunker.server.chunk;
+package com.ragchunker.server.chunk.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ragchunker.server.chunk.domain.ChunkDocument;
+import com.ragchunker.server.chunk.validation.ChunkSchemaValidationException;
+import com.ragchunker.server.chunk.validation.ChunkSchemaValidator;
+import com.ragchunker.server.chunk.validation.ChunkValidationResult;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;

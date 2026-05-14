@@ -1,4 +1,4 @@
-package com.ragchunker.server.chunk;
+package com.ragchunker.server.chunk.validation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
