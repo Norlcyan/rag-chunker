@@ -4,6 +4,14 @@ server:
 spring:
   application:
     name: rag-chunker-java-server
+  datasource:
+    url: "${RAG_CHUNKER_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/rag_chunker?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}"
+    username: "${RAG_CHUNKER_DATASOURCE_USERNAME:root}"
+    password: "${RAG_CHUNKER_DATASOURCE_PASSWORD:123456}"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: never
 
 rag-chunker:
   python-worker:
